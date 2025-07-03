@@ -1,12 +1,19 @@
-FROM python:3.13.5-slim
+FROM python:3.12-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE="1"
 ENV PYTHONUNBUFFERED="1"
-ENV PORT="8888"
+ENV PORT="9888"
 
 # Set work directory
 WORKDIR /mediaflow_proxy
+
+# Install dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git && rm -rf /var/lib/apt/lists/*
+
+# Clone il repository
+RUN git clone https://github.com/mhdzumair/mediaflow-proxy.git /mediaflow_proxy
 
 # Create a non-root user
 RUN useradd -m mediaflow_proxy
@@ -26,13 +33,14 @@ COPY --chown=mediaflow_proxy:mediaflow_proxy pyproject.toml poetry.lock* /mediaf
 
 # Project initialization:
 RUN poetry config virtualenvs.in-project true \
-    && poetry install --no-interaction --no-ansi --no-root --only main
+    && poetry install --no-interaction --no-ansi --no-root --only main \
+    && poetry add lxml
 
 # Copy project files
 COPY --chown=mediaflow_proxy:mediaflow_proxy . /mediaflow_proxy
 
 # Expose the port the app runs on
-EXPOSE 8888
+EXPOSE 9888
 
 # Activate virtual environment and run the application with Gunicorn
-CMD ["poetry", "run", "gunicorn", "mediaflow_proxy.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8888", "--timeout", "120", "--max-requests", "500", "--max-requests-jitter", "200", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "info"]
+CMD ["poetry", "run", "gunicorn", "mediaflow_proxy.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:9888", "--timeout", "120", "--max-requests", "500", "--max-requests-jitter", "200", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "info"]
